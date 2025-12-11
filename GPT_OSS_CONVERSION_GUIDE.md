@@ -223,6 +223,20 @@ This may cause issues when mbridge reads the model. Consider patching mbridge or
 | `rope_scaling.original_max_position_embeddings` | 4096 | - | **4096** |
 | `seq_length` | - | 4096 | 4096 (or custom) |
 
+### Why 40960?
+
+The Megatron GPT-OSS script was copy-pasted from **Qwen3 template** without updating `max-position-embeddings`:
+
+```bash
+# Qwen3-0.6B.sh (original)
+--max-position-embeddings 40960   # Qwen3's actual value
+
+# gpt-oss-20b.sh (copy-pasted, forgot to change!)
+--max-position-embeddings 40960   # Should be 131072 for GPT-OSS
+```
+
+Qwen3 natively uses 40960, but GPT-OSS uses YaRN to extend 4096 → 131072 (×32).
+
 ## Troubleshooting
 
 ### "World size must be less than or equal to number of layers"
