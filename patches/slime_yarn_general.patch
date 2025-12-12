@@ -1,0 +1,84 @@
+# SLIME YaRN General Patch
+# Supports GPT-OSS, Qwen, and other YaRN models
+# Apply with: patch -p1 < slime_yarn_general.patch
+# Run from SLIME root directory
+
+--- a/slime/backends/megatron_utils/model_provider.py
++++ b/slime/backends/megatron_utils/model_provider.py
+@@ -1,5 +1,7 @@
+ # Model provider for Megatron-LM
+-# Modified for v0.15.0 compatibility
++# Modified for v0.15.0 compatibility and YaRN support
++
++from typing import Literal
+
+ def get_model_provider_func(
+     args,
+@@ -10,7 +12,12 @@ def get_model_provider_func(
+     Returns a model provider function for Megatron's get_model().
+     """
+
+-    def model_provider(pre_process=True, post_process=True, vp_stage=None):
++    def model_provider(
++        pre_process=True,
++        post_process=True,
++        vp_stage=None,
++        **kwargs,  # v0.15.0 passes config=, pg_collection=
++    ):
+         """Build the model."""
+         from megatron.core.models.gpt import GPTModel
+         from megatron.core.models.gpt.gpt_layer_specs import (
+@@ -23,6 +30,8 @@ def get_model_provider_func(
+
+         use_te = args.transformer_impl == "transformer_engine"
+
++        # NOTE: YaRN config (--enable-gpt-oss, --yarn-* args) is handled
++        # in core_transformer_config_from_args automatically
+         config = core_transformer_config_from_args(args)
+
+         # Build transformer layer spec
+@@ -50,6 +59,8 @@ def get_model_provider_func(
+                     )
+
+         # Build GPTModel kwargs
++        # NOTE: position_embedding_type comes from config (set by --enable-gpt-oss or CLI)
++        # Do NOT pass position_embedding_type here to avoid conflicts
+         model_kwargs = {
+             "config": config,
+             "transformer_layer_spec": transformer_layer_spec,
+@@ -71,10 +82,11 @@ def get_model_provider_func(
+
+     return model_provider
+
+---- a/slime/backends/megatron_utils/arguments.py
+-+++ b/slime/backends/megatron_utils/arguments.py
++--- a/slime/backends/megatron_utils/megatron_args.py
+++++ b/slime/backends/megatron_utils/megatron_args.py
+ @@ -1,5 +1,6 @@
+- # Arguments processing for Megatron-LM
++ # Megatron arguments processing
++# Modified for YaRN support
+
+  def set_default_megatron_args(args):
+      """Set default Megatron arguments."""
+@@ -82,9 +94,10 @@ def get_model_provider_func(
+      # Sequence length
+      if not hasattr(args, 'seq_length') or args.seq_length is None:
+          args.seq_length = 4096
+-
+--    # Override max_position_embeddings
+--    args.max_position_embeddings = args.seq_length
+-+    # v0.15.0 + YaRN fix: Only set default if not provided
+-+    # GPT-OSS/Qwen needs max_position_embeddings to be the extended length (e.g., 131072)
+-+    if not hasattr(args, 'max_position_embeddings') or args.max_position_embeddings is None:
+-+        args.max_position_embeddings = args.seq_length
+-+    # If already set (e.g., --max-position-embeddings 131072), keep it
++
++-    # Set max_position_embeddings from seq_length
++-    args.max_position_embeddings = args.seq_length
+++    # YaRN fix: Don't override max_position_embeddings if already set
+++    # GPT-OSS/Qwen needs extended length (e.g., 131072), not seq_length
+++    if not hasattr(args, 'max_position_embeddings') or args.max_position_embeddings is None:
+++        args.max_position_embeddings = args.seq_length
+
+      # ... rest of the function

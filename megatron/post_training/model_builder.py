@@ -146,22 +146,8 @@ def modelopt_gpt_mamba_builder(args, pre_process, post_process, vp_stage=None, c
     print_rank_0("building GPT model ...")
 
     # ModelOpt by default assumes none homogenous layers. This affect the storage format of the sharded checkpoint.
+    # NOTE: YaRN configuration (--enable-gpt-oss, --yarn-* args) is handled in core_transformer_config_from_args
     config = core_transformer_config_from_args(args)
-
-    # Handle GPT-OSS mode with YaRN RoPE configuration
-    if hasattr(args, 'enable_gpt_oss') and args.enable_gpt_oss:
-        print_rank_0("GPT-OSS mode enabled: Configuring YaRN RoPE parameters")
-
-        # Set GPT-OSS YaRN values directly on the config
-        # These defaults are based on Huggingface GPT-OSS configurations
-        config.position_embedding_type = "yarn"
-        config.yarn_rotary_scaling_factor = 32.0
-        config.yarn_original_max_position_embeddings = 4096  # NOT 131072! (4096 × 32 factor = 131072)
-        config.yarn_beta_fast = 32.0
-        config.yarn_beta_slow = 1.0
-        config.yarn_mscale = 1.0
-        config.yarn_mscale_all_dim = 0.0
-        config.yarn_correction_range_round_to_int = False
 
     if vp_stage is not None:
         raise ValueError("ModelOpt integration does not currently support virtual pipeline parallel.")
