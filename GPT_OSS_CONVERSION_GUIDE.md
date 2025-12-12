@@ -45,7 +45,7 @@ GPT-OSS uses YaRN (Yet another RoPE extensioN) to extend context length:
 | `beta_slow` | 1.0 | YaRN frequency parameter |
 | `rope_base` | 150000 | RoPE base frequency |
 
-> ⚠️ **Warning**: Do NOT use `--enable-gpt-oss` flag - it has a bug setting `yarn_original_max_position_embeddings=131072` instead of `4096`. Use manual YaRN configuration instead.
+> ✅ **After applying patch**: Use `--enable-gpt-oss` flag - the patch fixes `yarn_original_max_position_embeddings` to correct value `4096`.
 
 ## Conversion Commands
 
