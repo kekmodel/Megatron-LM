@@ -1,0 +1,74 @@
+diff --git a/megatron/core/transformer/transformer_config.py b/megatron/core/transformer/transformer_config.py
+index cf36c0fc6..1c7cf4ea1 100644
+--- a/megatron/core/transformer/transformer_config.py
++++ b/megatron/core/transformer/transformer_config.py
+@@ -192,6 +192,28 @@ class TransformerConfig(ModelParallelConfig):
+     qk_layernorm: bool = False
+     """Whether to apply `normalization` type of normalization to the query and key embeddings."""
+ 
++    # GPT-OSS YaRN configuration (for GPTModel yarn position_embedding_type)
++    yarn_rotary_scaling_factor: float = 32.0
++    """YaRN rotary scaling factor for GPT-OSS models."""
++
++    yarn_original_max_position_embeddings: int = 4096
++    """Original max position embeddings before YaRN scaling. GPT-OSS uses 4096."""
++
++    yarn_beta_fast: float = 32.0
++    """YaRN beta_fast parameter for frequency interpolation."""
++
++    yarn_beta_slow: float = 1.0
++    """YaRN beta_slow parameter for frequency interpolation."""
++
++    yarn_mscale: float = 1.0
++    """YaRN mscale for attention scaling."""
++
++    yarn_mscale_all_dim: float = 0.0
++    """YaRN mscale_all_dim for attention scaling."""
++
++    yarn_correction_range_round_to_int: bool = False
++    """Whether to round correction range to integer in YaRN."""
++
+     test_mode: bool = False
+     """Whether to run real-time tests."""
+ 
+diff --git a/megatron/training/arguments.py b/megatron/training/arguments.py
+index 52b41791c..f2f992c4a 100644
+--- a/megatron/training/arguments.py
++++ b/megatron/training/arguments.py
+@@ -1325,8 +1325,23 @@ def core_transformer_config_from_args(args, config_class=None):
+         kw_args['quant_recipe'] = kitchen_quantization_recipe_config(args.kitchen_recipe_number)
+ 
+ 
+-    # Return config.
+-    return config_class(**kw_args)
++    # Create config
++    config = config_class(**kw_args)
++
++    # GPT-OSS YaRN configuration
++    if hasattr(args, 'enable_gpt_oss') and args.enable_gpt_oss:
++        from megatron.training.utils import print_rank_0
++        print_rank_0("GPT-OSS mode enabled: Configuring YaRN RoPE parameters")
++        config.position_embedding_type = "yarn"
++        config.yarn_rotary_scaling_factor = 32.0
++        config.yarn_original_max_position_embeddings = 4096  # NOT 131072!
++        config.yarn_beta_fast = 32.0
++        config.yarn_beta_slow = 1.0
++        config.yarn_mscale = 1.0
++        config.yarn_mscale_all_dim = 0.0
++        config.yarn_correction_range_round_to_int = False
++
++    return config
+ 
+ 
+ def _add_transformer_engine_args(parser):
+@@ -2216,6 +2231,10 @@ def _add_training_args(parser):
+                       choices=['rope', 'yarn'],
+                       help='Type of rope to use. Note that MLA takes yarn by default, '
+                       'and common attention takes rope by default.')
++    group.add_argument('--enable-gpt-oss', action='store_true',
++                      help='Enable GPT-OSS mode with YaRN RoPE configuration. When enabled, '
++                      'automatically configures all YaRN parameters with GPT-OSS defaults '
++                      '(yarn_original_max_position_embeddings=4096, factor=32, etc).')
+     group.add_argument('--cross-entropy-loss-fusion', action='store_true',
+                        help='Enabled fusion of cross entropy loss calculation.',
+                        dest='cross_entropy_loss_fusion')
