@@ -215,7 +215,8 @@ YaRN parameters are **not configurable via CLI** (only MLA supports `--rope-type
 | `config.position_embedding_type = "yarn"` | ❌ | **Code only** (overwrites CLI) |
 | `config.yarn_original_max_position_embeddings` | ❌ | **Code only** - 핵심! |
 | `config.yarn_beta_fast`, `yarn_beta_slow` | ❌ | **Code only** |
-| `config.yarn_mscale` | ❌ | **Code only** |
+| `config.yarn_mscale`, `yarn_mscale_all_dim` | ❌ | **Code only** |
+| `config.yarn_correction_range_round_to_int` | ❌ | **Code only** - v0.15.0 필수! |
 
 ### Required Code Changes in model_provider
 
@@ -232,6 +233,7 @@ config.yarn_beta_fast = 32.0
 config.yarn_beta_slow = 1.0
 config.yarn_mscale = 1.0
 config.yarn_mscale_all_dim = 0.0
+config.yarn_correction_range_round_to_int = False  # v0.15.0 필수!
 ```
 
 > ⚠️ **Why not `--rope-type yarn`?** Megatron only allows `--rope-type yarn` for MLA (Multi-Latent Attention). GPT-OSS uses standard attention, so you must set `position_embedding_type = "yarn"` in code.
