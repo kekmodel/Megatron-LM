@@ -1333,8 +1333,13 @@ def core_transformer_config_from_args(args, config_class=None):
         from megatron.core.utils import print_rank_0
         print_rank_0("GPT-OSS mode enabled: Configuring YaRN RoPE parameters")
         config.position_embedding_type = "yarn"
-        # yarn_* defaults are already set in TransformerConfig:
-        # yarn_original_max_position_embeddings=4096, yarn_rotary_scaling_factor=32.0, etc.
+        config.yarn_rotary_scaling_factor = 32.0
+        config.yarn_original_max_position_embeddings = 4096  # NOT 131072!
+        config.yarn_beta_fast = 32.0
+        config.yarn_beta_slow = 1.0
+        config.yarn_mscale = 1.0
+        config.yarn_mscale_all_dim = 0.0
+        config.yarn_correction_range_round_to_int = False
 
     return config
 
