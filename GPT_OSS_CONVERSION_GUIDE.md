@@ -220,7 +220,7 @@ YaRN parameters are **not configurable via CLI** (only MLA supports `--rope-type
 
 ### Required Code Changes in model_provider
 
-Add these lines **after** `core_transformer_config_from_args(args)`:
+**Step 1**: Add YaRN config **after** `core_transformer_config_from_args(args)`:
 
 ```python
 config: TransformerConfig = core_transformer_config_from_args(args)
@@ -236,7 +236,33 @@ config.yarn_mscale_all_dim = 0.0
 config.yarn_correction_range_round_to_int = False  # v0.15.0 필수!
 ```
 
-> ⚠️ **Why not `--rope-type yarn`?** Megatron only allows `--rope-type yarn` for MLA (Multi-Latent Attention). GPT-OSS uses standard attention, so you must set `position_embedding_type = "yarn"` in code.
+**Step 2**: Remove conflicting kwargs from GPTModel (kwargs가 config보다 우선순위 높음!):
+
+```python
+kwargs = {
+    "config": config,
+    "transformer_layer_spec": transformer_layer_spec,
+    "vocab_size": args.padded_vocab_size,
+    "max_sequence_length": args.max_position_embeddings,
+    "pre_process": pre_process,
+    "post_process": post_process,
+    "fp16_lm_cross_entropy": args.fp16_lm_cross_entropy,
+    "parallel_output": True,
+    "share_embeddings_and_output_weights": not args.untie_embeddings_and_output_weights,
+    # ❌ 삭제: "position_embedding_type": args.position_embedding_type,
+    "rotary_percent": args.rotary_percent,
+    "rotary_base": args.rotary_base,
+    # ❌ 삭제: "rope_scaling": args.use_rope_scaling,
+}
+```
+
+> ⚠️ **Why remove from kwargs?** GPTModel uses kwargs over config:
+> ```python
+> self.position_embedding_type = (
+>     position_embedding_type if position_embedding_type is not None
+>     else self.config.position_embedding_type
+> )
+> ```
 
 ## Bug Fix Details
 
