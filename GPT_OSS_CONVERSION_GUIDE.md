@@ -200,23 +200,58 @@ For GPT-OSS-120B, modify the following parameters:
 | `--no-bias-gelu-fusion` | Disable bias-gelu fusion |
 | `--no-bias-dropout-fusion` | Disable bias-dropout fusion |
 
-## Bug Fix Details
+## YaRN Configuration for SLIME Users
 
-### Megatron `--enable-gpt-oss` Bug (DO NOT USE)
+SLIME uses its own `convert_hf_to_torch_dist.py` which doesn't have `--enable-gpt-oss`.
+YaRN parameters are **not configurable via CLI** (only MLA supports `--rope-type yarn`).
 
-The `--enable-gpt-oss` flag in `megatron/post_training/model_builder.py` has a bug:
+### CLI vs Code Configuration
+
+| Parameter | CLI Support? | Notes |
+|-----------|-------------|-------|
+| `--position-embedding-type rope` | ✅ | Use `rope` in CLI |
+| `--rotary-base 150000` | ✅ | |
+| `--rotary-percent 1.0` | ✅ | |
+| `--max-position-embeddings 131072` | ✅ | |
+| `--use-rope-scaling` | ✅ | Llama3.x style, not YaRN |
+| `config.position_embedding_type = "yarn"` | ❌ | **Code only** (overwrites CLI) |
+| `config.yarn_original_max_position_embeddings` | ❌ | **Code only** |
+| `config.yarn_beta_fast`, `yarn_beta_slow` | ❌ | **Code only** |
+| `config.yarn_mscale` | ❌ | **Code only** |
+
+### Required Code Changes in model_provider
+
+Add these lines **after** `core_transformer_config_from_args(args)`:
 
 ```python
-# Bug: sets wrong value
+config: TransformerConfig = core_transformer_config_from_args(args)
+
+# GPT-OSS YaRN config (CLI에서 지원 안 함)
+config.position_embedding_type = "yarn"  # CLI는 'rope'만 지원, yarn으로 덮어쓰기
+config.yarn_rotary_scaling_factor = 32.0
+config.yarn_original_max_position_embeddings = 4096  # 핵심! (NOT 131072)
+config.yarn_beta_fast = 32.0
+config.yarn_beta_slow = 1.0
+config.yarn_mscale = 1.0
+config.yarn_mscale_all_dim = 0.0
+```
+
+> ⚠️ **Why not `--rope-type yarn`?** Megatron only allows `--rope-type yarn` for MLA (Multi-Latent Attention). GPT-OSS uses standard attention, so you must set `position_embedding_type = "yarn"` in code.
+
+## Bug Fix Details
+
+### Megatron `--enable-gpt-oss` Bug
+
+The `--enable-gpt-oss` flag in `megatron/post_training/model_builder.py` **had** a bug:
+
+```python
+# Bug (before patch): sets wrong value
 config.yarn_original_max_position_embeddings = 131072  # Wrong! Should be 4096
 ```
 
-**Solution**: Don't use `--enable-gpt-oss`. Use manual YaRN configuration instead:
-```bash
---position-embedding-type rope \
---use-rope-scaling \
---rope-scaling-factor 32.0
-```
+**After applying `megatron_v0.15.0.patch`**: The bug is fixed. But `--enable-gpt-oss` is only available in Megatron's `post_training` scripts, not in SLIME.
+
+**For SLIME users**: Use manual YaRN configuration in code (see above section).
 
 ### mbridge Bug (Not fixed)
 
