@@ -2,6 +2,110 @@
 
 General YaRN support for GPT-OSS, Qwen, and other models.
 
+---
+
+## 수정 파일 상세 (File Modification Details)
+
+### 1. Megatron-LM
+
+| 파일 경로 | 수정 위치 | 변경 내용 |
+|----------|----------|----------|
+| `megatron/core/models/gpt/gpt_model.py` | Line 147 | `position_embedding_type=position_embedding_type` → `position_embedding_type=self.position_embedding_type` |
+| `megatron/core/models/gpt/gpt_model.py` | Line 165-189 | YaRN config None 처리 추가 (기본값 적용) |
+| `megatron/core/transformer/transformer_config.py` | Line 195-216 | `yarn_*` 필드 타입 `Optional`로 변경, 기본값 `None` |
+| `megatron/training/arguments.py` | Line 2238-2251 | `--yarn-*` CLI 인자 추가 |
+| `megatron/training/arguments.py` | Line 1331-1365 | `core_transformer_config_from_args`에서 YaRN 설정 처리 |
+| `megatron/post_training/model_builder.py` | Line 151-164 | 중복 YaRN 설정 코드 제거 |
+
+**적용 방법:**
+```bash
+cd /path/to/Megatron-LM
+git apply patches/megatron_yarn_general.patch
+```
+
+---
+
+### 2. mbridge
+
+| 파일 경로 | 수정 위치 | 변경 내용 |
+|----------|----------|----------|
+| `mbridge/models/gpt_oss.py` | `GPTOSSConfig` 클래스 | `yarn_original_max_position_embeddings: int = 131072` → `4096` |
+
+**적용 방법:**
+```bash
+MBRIDGE_GPT_OSS=$(python3 -c "import mbridge.models.gpt_oss as m; print(m.__file__)")
+sed -i 's/yarn_original_max_position_embeddings: int = 131072/yarn_original_max_position_embeddings: int = 4096/' "$MBRIDGE_GPT_OSS"
+
+# 확인
+grep "yarn_original_max_position_embeddings" "$MBRIDGE_GPT_OSS"
+```
+
+**Before:**
+```python
+@dataclass
+class GPTOSSConfig(TransformerConfig):
+    yarn_original_max_position_embeddings: int = 131072  # ❌ 버그
+```
+
+**After:**
+```python
+@dataclass
+class GPTOSSConfig(TransformerConfig):
+    yarn_original_max_position_embeddings: int = 4096   # ✅ 수정
+```
+
+---
+
+### 3. SLIME
+
+| 파일 경로 | 수정 위치 | 변경 내용 |
+|----------|----------|----------|
+| `slime/backends/megatron_utils/arguments.py` | `set_default_megatron_args` 함수 | `max_position_embeddings` 덮어쓰기 방지 |
+| `slime/backends/megatron_utils/model_provider.py` | `model_provider` 함수 시그니처 | `**kwargs` 추가 (v0.15.0 호환) |
+
+**적용 방법:**
+```bash
+# 1. arguments.py - max_position_embeddings 덮어쓰기 방지
+SLIME_ARGS="/path/to/slime/slime/backends/megatron_utils/arguments.py"
+sed -i 's/args\.max_position_embeddings = args\.seq_length/args.max_position_embeddings = getattr(args, "max_position_embeddings", None) or args.seq_length/' "$SLIME_ARGS"
+
+# 2. model_provider.py - **kwargs 추가
+SLIME_MP="/path/to/slime/slime/backends/megatron_utils/model_provider.py"
+sed -i 's/def model_provider(pre_process=True, post_process=True, vp_stage=None):/def model_provider(pre_process=True, post_process=True, vp_stage=None, **kwargs):/' "$SLIME_MP"
+
+# 확인
+grep "max_position_embeddings" "$SLIME_ARGS"
+grep "def model_provider" "$SLIME_MP"
+```
+
+**arguments.py Before:**
+```python
+def set_default_megatron_args(args):
+    if not hasattr(args, 'seq_length') or args.seq_length is None:
+        args.seq_length = 4096
+    args.max_position_embeddings = args.seq_length  # ❌ 항상 덮어씀
+```
+
+**arguments.py After:**
+```python
+def set_default_megatron_args(args):
+    if not hasattr(args, 'seq_length') or args.seq_length is None:
+        args.seq_length = 4096
+    args.max_position_embeddings = getattr(args, "max_position_embeddings", None) or args.seq_length  # ✅ CLI 값 유지
+```
+
+**model_provider.py Before:**
+```python
+def model_provider(pre_process=True, post_process=True, vp_stage=None):  # ❌ v0.15.0 비호환
+```
+
+**model_provider.py After:**
+```python
+def model_provider(pre_process=True, post_process=True, vp_stage=None, **kwargs):  # ✅ v0.15.0 호환
+```
+
+---
+
 ## Quick Start
 
 ### 1. Megatron-LM Patch (필수)
@@ -21,11 +125,9 @@ sed -i 's/yarn_original_max_position_embeddings: int = 131072/yarn_original_max_
 ### 3. SLIME Patch (SLIME 사용 시)
 
 ```bash
-# max_position_embeddings 덮어쓰기 방지
 SLIME_ARGS="/path/to/slime/slime/backends/megatron_utils/arguments.py"
 sed -i 's/args\.max_position_embeddings = args\.seq_length/args.max_position_embeddings = getattr(args, "max_position_embeddings", None) or args.seq_length/' "$SLIME_ARGS"
 
-# model_provider v0.15.0 호환 (**kwargs 추가)
 SLIME_MP="/path/to/slime/slime/backends/megatron_utils/model_provider.py"
 sed -i 's/def model_provider(pre_process=True, post_process=True, vp_stage=None):/def model_provider(pre_process=True, post_process=True, vp_stage=None, **kwargs):/' "$SLIME_MP"
 ```
@@ -84,36 +186,6 @@ max_position_embeddings = 131072          ← 확장된 길이 (4096 × 32)
 
 ---
 
-## 패치 내용 요약
-
-### megatron_yarn_general.patch
-
-| 파일 | 변경 내용 |
-|------|----------|
-| `gpt_model.py` | `position_embedding_type=self.position_embedding_type` 버그 수정 |
-| `gpt_model.py` | YaRN Optional 값 처리 (None → 기본값) |
-| `transformer_config.py` | yarn_* 필드 Optional로 변경 |
-| `arguments.py` | `--yarn-*` CLI 인자 추가 |
-| `arguments.py` | `--enable-gpt-oss` 프리셋 로직 개선 |
-| `model_builder.py` | 중복 코드 제거 |
-
-### mbridge fix
-
-```python
-# Before (버그)
-yarn_original_max_position_embeddings: int = 131072
-
-# After (수정)
-yarn_original_max_position_embeddings: int = 4096
-```
-
-### SLIME fix
-
-1. `max_position_embeddings` 덮어쓰기 방지 (CLI 값 유지)
-2. `model_provider` v0.15.0 호환 (`**kwargs` 추가)
-
----
-
 ## GPT-OSS Model Specifications
 
 | Parameter | GPT-OSS-20B | GPT-OSS-120B |
@@ -165,11 +237,19 @@ python tools/convert_hf_to_torch_dist.py \
 ## Dockerfile Example
 
 ```dockerfile
-# Megatron patch only (mbridge/SLIME는 수동 패치)
+# Megatron patch
 COPY patches/megatron_yarn_general.patch /root/Megatron-LM/megatron.patch
-RUN cd Megatron-LM && \
-    git apply megatron.patch --3way && \
-    rm megatron.patch
+RUN cd Megatron-LM && git apply megatron.patch --3way && rm megatron.patch
+
+# mbridge patch
+RUN MBRIDGE_GPT_OSS=$(python3 -c "import mbridge.models.gpt_oss as m; print(m.__file__)") && \
+    sed -i 's/yarn_original_max_position_embeddings: int = 131072/yarn_original_max_position_embeddings: int = 4096/' "$MBRIDGE_GPT_OSS"
+
+# SLIME patch
+RUN sed -i 's/args\.max_position_embeddings = args\.seq_length/args.max_position_embeddings = getattr(args, "max_position_embeddings", None) or args.seq_length/' \
+    /path/to/slime/slime/backends/megatron_utils/arguments.py
+RUN sed -i 's/def model_provider(pre_process=True, post_process=True, vp_stage=None):/def model_provider(pre_process=True, post_process=True, vp_stage=None, **kwargs):/' \
+    /path/to/slime/slime/backends/megatron_utils/model_provider.py
 ```
 
 ---
@@ -189,3 +269,15 @@ RUN cd Megatron-LM && \
 **원인**: mbridge GPTOSSConfig 버그
 
 **해결**: mbridge sed 패치 적용
+
+### `max_position_embeddings`가 `seq_length`로 덮어써짐
+
+**원인**: SLIME `set_default_megatron_args`에서 강제 덮어쓰기
+
+**해결**: SLIME arguments.py sed 패치 적용
+
+### v0.15.0에서 `model_provider() got unexpected keyword argument 'config'`
+
+**원인**: Megatron v0.15.0이 `model_provider`에 `config=`, `pg_collection=` 전달
+
+**해결**: SLIME model_provider.py에 `**kwargs` 추가
