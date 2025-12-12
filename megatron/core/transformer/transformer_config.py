@@ -192,24 +192,26 @@ class TransformerConfig(ModelParallelConfig):
     qk_layernorm: bool = False
     """Whether to apply `normalization` type of normalization to the query and key embeddings."""
 
-    # GPT-OSS YaRN configuration (for GPTModel yarn position_embedding_type)
-    yarn_rotary_scaling_factor: float = 32.0
-    """YaRN rotary scaling factor for GPT-OSS models."""
+    # YaRN configuration (for GPTModel yarn position_embedding_type)
+    # Set via CLI: --yarn-rotary-scaling-factor, --yarn-original-max-position-embeddings, etc.
+    # Or use --enable-gpt-oss for GPT-OSS defaults (4096, 32.0, etc.)
+    yarn_rotary_scaling_factor: Optional[float] = None
+    """YaRN rotary scaling factor (e.g., 32.0 for GPT-OSS, 4.0 for Qwen)."""
 
-    yarn_original_max_position_embeddings: int = 4096
-    """Original max position embeddings before YaRN scaling. GPT-OSS uses 4096."""
+    yarn_original_max_position_embeddings: Optional[int] = None
+    """Original max position embeddings before YaRN scaling (e.g., 4096 for GPT-OSS)."""
 
-    yarn_beta_fast: float = 32.0
-    """YaRN beta_fast parameter for frequency interpolation."""
+    yarn_beta_fast: Optional[float] = None
+    """YaRN beta_fast parameter for frequency interpolation (default: 32.0)."""
 
-    yarn_beta_slow: float = 1.0
-    """YaRN beta_slow parameter for frequency interpolation."""
+    yarn_beta_slow: Optional[float] = None
+    """YaRN beta_slow parameter for frequency interpolation (default: 1.0)."""
 
-    yarn_mscale: float = 1.0
-    """YaRN mscale for attention scaling."""
+    yarn_mscale: Optional[float] = None
+    """YaRN mscale for attention scaling (default: 1.0)."""
 
-    yarn_mscale_all_dim: float = 0.0
-    """YaRN mscale_all_dim for attention scaling."""
+    yarn_mscale_all_dim: Optional[float] = None
+    """YaRN mscale_all_dim for attention scaling (default: 0.0)."""
 
     yarn_correction_range_round_to_int: bool = False
     """Whether to round correction range to integer in YaRN."""

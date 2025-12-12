@@ -1328,18 +1328,40 @@ def core_transformer_config_from_args(args, config_class=None):
     # Create config
     config = config_class(**kw_args)
 
-    # GPT-OSS YaRN configuration
+    # YaRN RoPE configuration
+    # Step 1: Apply --enable-gpt-oss defaults (if enabled)
     if hasattr(args, 'enable_gpt_oss') and args.enable_gpt_oss:
         from megatron.training.utils import print_rank_0
-        print_rank_0("GPT-OSS mode enabled: Configuring YaRN RoPE parameters")
+        print_rank_0("GPT-OSS mode enabled: Applying YaRN RoPE defaults")
         config.position_embedding_type = "yarn"
-        config.yarn_rotary_scaling_factor = 32.0
-        config.yarn_original_max_position_embeddings = 4096  # NOT 131072!
-        config.yarn_beta_fast = 32.0
-        config.yarn_beta_slow = 1.0
-        config.yarn_mscale = 1.0
-        config.yarn_mscale_all_dim = 0.0
+        # GPT-OSS defaults (can be overridden by CLI args below)
+        if config.yarn_rotary_scaling_factor is None:
+            config.yarn_rotary_scaling_factor = 32.0
+        if config.yarn_original_max_position_embeddings is None:
+            config.yarn_original_max_position_embeddings = 4096  # NOT 131072!
+        if config.yarn_beta_fast is None:
+            config.yarn_beta_fast = 32.0
+        if config.yarn_beta_slow is None:
+            config.yarn_beta_slow = 1.0
+        if config.yarn_mscale is None:
+            config.yarn_mscale = 1.0
+        if config.yarn_mscale_all_dim is None:
+            config.yarn_mscale_all_dim = 0.0
         config.yarn_correction_range_round_to_int = False
+
+    # Step 2: Apply CLI args (override defaults or --enable-gpt-oss values)
+    if hasattr(args, 'yarn_rotary_scaling_factor') and args.yarn_rotary_scaling_factor is not None:
+        config.yarn_rotary_scaling_factor = args.yarn_rotary_scaling_factor
+    if hasattr(args, 'yarn_original_max_position_embeddings') and args.yarn_original_max_position_embeddings is not None:
+        config.yarn_original_max_position_embeddings = args.yarn_original_max_position_embeddings
+    if hasattr(args, 'yarn_beta_fast') and args.yarn_beta_fast is not None:
+        config.yarn_beta_fast = args.yarn_beta_fast
+    if hasattr(args, 'yarn_beta_slow') and args.yarn_beta_slow is not None:
+        config.yarn_beta_slow = args.yarn_beta_slow
+    if hasattr(args, 'yarn_mscale') and args.yarn_mscale is not None:
+        config.yarn_mscale = args.yarn_mscale
+    if hasattr(args, 'yarn_mscale_all_dim') and args.yarn_mscale_all_dim is not None:
+        config.yarn_mscale_all_dim = args.yarn_mscale_all_dim
 
     return config
 
@@ -2235,6 +2257,20 @@ def _add_training_args(parser):
                       help='Enable GPT-OSS mode with YaRN RoPE configuration. When enabled, '
                       'automatically configures all YaRN parameters with GPT-OSS defaults '
                       '(yarn_original_max_position_embeddings=4096, factor=32, etc).')
+    # YaRN RoPE configuration arguments (can override --enable-gpt-oss defaults)
+    group.add_argument('--yarn-rotary-scaling-factor', type=float, default=None,
+                      help='YaRN scaling factor (e.g., 32.0 for GPT-OSS, 4.0 for Qwen).')
+    group.add_argument('--yarn-original-max-position-embeddings', type=int, default=None,
+                      help='Original max position embeddings before YaRN scaling '
+                      '(e.g., 4096 for GPT-OSS). This is NOT the extended length.')
+    group.add_argument('--yarn-beta-fast', type=float, default=None,
+                      help='YaRN beta_fast parameter (default: 32.0).')
+    group.add_argument('--yarn-beta-slow', type=float, default=None,
+                      help='YaRN beta_slow parameter (default: 1.0).')
+    group.add_argument('--yarn-mscale', type=float, default=None,
+                      help='YaRN mscale parameter (default: 1.0).')
+    group.add_argument('--yarn-mscale-all-dim', type=float, default=None,
+                      help='YaRN mscale_all_dim parameter (default: 0.0).')
     group.add_argument('--cross-entropy-loss-fusion', action='store_true',
                        help='Enabled fusion of cross entropy loss calculation.',
                        dest='cross_entropy_loss_fusion')
