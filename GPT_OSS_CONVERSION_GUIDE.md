@@ -45,11 +45,11 @@ GPT-OSS uses YaRN (Yet another RoPE extensioN) to extend context length:
 | `beta_slow` | 1.0 | YaRN frequency parameter |
 | `rope_base` | 150000 | RoPE base frequency |
 
-> ⚠️ **Important**: YaRN parameters (`yarn_original_max_position_embeddings`, `yarn_beta_*`, etc.) are NOT configurable via CLI. You must set them in code. See "YaRN Configuration for SLIME Users" section below.
+> ✅ **v0.15.0 패치 적용 후**: `--enable-gpt-oss` 플래그 사용 가능! TransformerConfig에 YaRN 기본값이 포함됨.
 
 ## Conversion Commands (SLIME)
 
-> **Note**: These commands use `--position-embedding-type rope` in CLI. YaRN config must be added in `model_provider` code (see below).
+> **Note**: `--enable-gpt-oss` 플래그가 자동으로 YaRN 설정을 적용함 (v0.15.0 패치 필요)
 
 ### Single GPU Conversion (GPT-OSS-20B)
 
@@ -59,6 +59,7 @@ python tools/convert_hf_to_torch_dist.py \
     --save /path/to/output \
     --bf16 \
     --use-mcore-models \
+    --enable-gpt-oss \
     --num-layers 24 \
     --hidden-size 2880 \
     --ffn-hidden-size 2880 \
@@ -68,7 +69,6 @@ python tools/convert_hf_to_torch_dist.py \
     --kv-channels 64 \
     --seq-length 4096 \
     --max-position-embeddings 131072 \
-    --position-embedding-type rope \
     --rotary-base 150000 \
     --rotary-percent 1.0 \
     --num-experts 32 \
@@ -102,6 +102,7 @@ torchrun --nproc_per_node=8 tools/convert_hf_to_torch_dist.py \
     --tensor-model-parallel-size 8 \
     --bf16 \
     --use-mcore-models \
+    --enable-gpt-oss \
     --num-layers 24 \
     --hidden-size 2880 \
     --ffn-hidden-size 2880 \
@@ -111,7 +112,6 @@ torchrun --nproc_per_node=8 tools/convert_hf_to_torch_dist.py \
     --kv-channels 64 \
     --seq-length 4096 \
     --max-position-embeddings 131072 \
-    --position-embedding-type rope \
     --rotary-base 150000 \
     --rotary-percent 1.0 \
     --num-experts 32 \

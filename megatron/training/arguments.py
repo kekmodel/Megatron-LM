@@ -1325,8 +1325,18 @@ def core_transformer_config_from_args(args, config_class=None):
         kw_args['quant_recipe'] = kitchen_quantization_recipe_config(args.kitchen_recipe_number)
 
 
-    # Return config.
-    return config_class(**kw_args)
+    # Create config
+    config = config_class(**kw_args)
+
+    # GPT-OSS YaRN configuration
+    if hasattr(args, 'enable_gpt_oss') and args.enable_gpt_oss:
+        from megatron.core.utils import print_rank_0
+        print_rank_0("GPT-OSS mode enabled: Configuring YaRN RoPE parameters")
+        config.position_embedding_type = "yarn"
+        # yarn_* defaults are already set in TransformerConfig:
+        # yarn_original_max_position_embeddings=4096, yarn_rotary_scaling_factor=32.0, etc.
+
+    return config
 
 
 def _add_transformer_engine_args(parser):
@@ -2216,6 +2226,10 @@ def _add_training_args(parser):
                       choices=['rope', 'yarn'],
                       help='Type of rope to use. Note that MLA takes yarn by default, '
                       'and common attention takes rope by default.')
+    group.add_argument('--enable-gpt-oss', action='store_true',
+                      help='Enable GPT-OSS mode with YaRN RoPE configuration. When enabled, '
+                      'automatically configures all YaRN parameters with GPT-OSS defaults '
+                      '(yarn_original_max_position_embeddings=4096, factor=32, etc).')
     group.add_argument('--cross-entropy-loss-fusion', action='store_true',
                        help='Enabled fusion of cross entropy loss calculation.',
                        dest='cross_entropy_loss_fusion')
