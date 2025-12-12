@@ -45,9 +45,11 @@ GPT-OSS uses YaRN (Yet another RoPE extensioN) to extend context length:
 | `beta_slow` | 1.0 | YaRN frequency parameter |
 | `rope_base` | 150000 | RoPE base frequency |
 
-> ✅ **After applying patch**: Use `--enable-gpt-oss` flag - the patch fixes `yarn_original_max_position_embeddings` to correct value `4096`.
+> ⚠️ **Important**: YaRN parameters (`yarn_original_max_position_embeddings`, `yarn_beta_*`, etc.) are NOT configurable via CLI. You must set them in code. See "YaRN Configuration for SLIME Users" section below.
 
-## Conversion Commands
+## Conversion Commands (SLIME)
+
+> **Note**: These commands use `--position-embedding-type rope` in CLI. YaRN config must be added in `model_provider` code (see below).
 
 ### Single GPU Conversion (GPT-OSS-20B)
 
@@ -69,8 +71,6 @@ python tools/convert_hf_to_torch_dist.py \
     --position-embedding-type rope \
     --rotary-base 150000 \
     --rotary-percent 1.0 \
-    --use-rope-scaling \
-    --rope-scaling-factor 32.0 \
     --num-experts 32 \
     --moe-ffn-hidden-size 2880 \
     --moe-router-topk 4 \
@@ -114,8 +114,6 @@ torchrun --nproc_per_node=8 tools/convert_hf_to_torch_dist.py \
     --position-embedding-type rope \
     --rotary-base 150000 \
     --rotary-percent 1.0 \
-    --use-rope-scaling \
-    --rope-scaling-factor 32.0 \
     --num-experts 32 \
     --moe-ffn-hidden-size 2880 \
     --moe-router-topk 4 \
@@ -159,15 +157,15 @@ For GPT-OSS-120B, modify the following parameters:
 | `--kv-channels` | 64 | Key/Value head dimension |
 | `--num-query-groups` | 8 | GQA groups (num_key_value_heads) |
 
-### Position Embedding (Manual YaRN)
+### Position Embedding (CLI)
 | Argument | Value | Description |
 |----------|-------|-------------|
-| `--position-embedding-type` | rope | Use RoPE embeddings |
+| `--position-embedding-type` | rope | Use RoPE (code overrides to YaRN) |
 | `--max-position-embeddings` | 131072 | Extended context length |
 | `--rotary-base` | 150000 | RoPE base frequency |
 | `--rotary-percent` | 1.0 | Full rotary embedding |
-| `--use-rope-scaling` | - | Enable YaRN scaling |
-| `--rope-scaling-factor` | 32.0 | YaRN factor (4096 × 32 = 131072) |
+
+> ⚠️ **Note**: `--use-rope-scaling` and `--rope-scaling-factor` are **Llama3.x style**, not YaRN. Don't use them for GPT-OSS. Set YaRN config in code instead.
 
 ### MoE Configuration
 | Argument | Value | Description |
@@ -213,9 +211,9 @@ YaRN parameters are **not configurable via CLI** (only MLA supports `--rope-type
 | `--rotary-base 150000` | ✅ | |
 | `--rotary-percent 1.0` | ✅ | |
 | `--max-position-embeddings 131072` | ✅ | |
-| `--use-rope-scaling` | ✅ | Llama3.x style, not YaRN |
+| `--use-rope-scaling` | ❌ | **Don't use** - Llama3.x style, not YaRN |
 | `config.position_embedding_type = "yarn"` | ❌ | **Code only** (overwrites CLI) |
-| `config.yarn_original_max_position_embeddings` | ❌ | **Code only** |
+| `config.yarn_original_max_position_embeddings` | ❌ | **Code only** - 핵심! |
 | `config.yarn_beta_fast`, `yarn_beta_slow` | ❌ | **Code only** |
 | `config.yarn_mscale` | ❌ | **Code only** |
 
