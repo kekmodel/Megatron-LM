@@ -156,7 +156,7 @@ def modelopt_gpt_mamba_builder(args, pre_process, post_process, vp_stage=None, c
         # These defaults are based on Huggingface GPT-OSS configurations
         config.position_embedding_type = "yarn"
         config.yarn_rotary_scaling_factor = 32.0
-        config.yarn_original_max_position_embeddings = 131072
+        config.yarn_original_max_position_embeddings = 4096  # NOT 131072! (4096 × 32 factor = 131072)
         config.yarn_beta_fast = 32.0
         config.yarn_beta_slow = 1.0
         config.yarn_mscale = 1.0
