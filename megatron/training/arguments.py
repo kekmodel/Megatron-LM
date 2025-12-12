@@ -1330,7 +1330,7 @@ def core_transformer_config_from_args(args, config_class=None):
 
     # GPT-OSS YaRN configuration
     if hasattr(args, 'enable_gpt_oss') and args.enable_gpt_oss:
-        from megatron.core.utils import print_rank_0
+        from megatron.training.utils import print_rank_0
         print_rank_0("GPT-OSS mode enabled: Configuring YaRN RoPE parameters")
         config.position_embedding_type = "yarn"
         config.yarn_rotary_scaling_factor = 32.0
