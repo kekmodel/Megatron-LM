@@ -45,7 +45,7 @@ GPT-OSS uses YaRN (Yet another RoPE extensioN) to extend context length:
 | `beta_slow` | 1.0 | YaRN frequency parameter |
 | `rope_base` | 150000 | RoPE base frequency |
 
-> **Important**: The `--enable-gpt-oss` flag had a bug setting `yarn_original_max_position_embeddings=131072` instead of `4096`. This patch fixes it.
+> ⚠️ **Warning**: Do NOT use `--enable-gpt-oss` flag - it has a bug setting `yarn_original_max_position_embeddings=131072` instead of `4096`. Use manual YaRN configuration instead.
 
 ## Conversion Commands
 
@@ -66,8 +66,11 @@ python tools/convert_hf_to_torch_dist.py \
     --kv-channels 64 \
     --seq-length 4096 \
     --max-position-embeddings 131072 \
+    --position-embedding-type rope \
     --rotary-base 150000 \
     --rotary-percent 1.0 \
+    --use-rope-scaling \
+    --rope-scaling-factor 32.0 \
     --num-experts 32 \
     --moe-ffn-hidden-size 2880 \
     --moe-router-topk 4 \
@@ -83,7 +86,6 @@ python tools/convert_hf_to_torch_dist.py \
     --softmax-type learnable \
     --window-size 128,0 \
     --window-attn-skip-freq 2 \
-    --enable-gpt-oss \
     --no-masked-softmax-fusion \
     --no-rope-fusion \
     --no-bias-gelu-fusion \
@@ -108,8 +110,11 @@ torchrun --nproc_per_node=8 tools/convert_hf_to_torch_dist.py \
     --kv-channels 64 \
     --seq-length 4096 \
     --max-position-embeddings 131072 \
+    --position-embedding-type rope \
     --rotary-base 150000 \
     --rotary-percent 1.0 \
+    --use-rope-scaling \
+    --rope-scaling-factor 32.0 \
     --num-experts 32 \
     --moe-ffn-hidden-size 2880 \
     --moe-router-topk 4 \
@@ -125,7 +130,6 @@ torchrun --nproc_per_node=8 tools/convert_hf_to_torch_dist.py \
     --softmax-type learnable \
     --window-size 128,0 \
     --window-attn-skip-freq 2 \
-    --enable-gpt-oss \
     --no-masked-softmax-fusion \
     --no-rope-fusion \
     --no-bias-gelu-fusion \
@@ -153,13 +157,15 @@ For GPT-OSS-120B, modify the following parameters:
 | `--kv-channels` | 64 | Key/Value head dimension |
 | `--num-query-groups` | 8 | GQA groups (num_key_value_heads) |
 
-### Position Embedding
+### Position Embedding (Manual YaRN)
 | Argument | Value | Description |
 |----------|-------|-------------|
-| `--enable-gpt-oss` | - | Auto-configure YaRN (patch required!) |
+| `--position-embedding-type` | rope | Use RoPE embeddings |
 | `--max-position-embeddings` | 131072 | Extended context length |
 | `--rotary-base` | 150000 | RoPE base frequency |
 | `--rotary-percent` | 1.0 | Full rotary embedding |
+| `--use-rope-scaling` | - | Enable YaRN scaling |
+| `--rope-scaling-factor` | 32.0 | YaRN factor (4096 × 32 = 131072) |
 
 ### MoE Configuration
 | Argument | Value | Description |
@@ -193,16 +199,20 @@ For GPT-OSS-120B, modify the following parameters:
 
 ## Bug Fix Details
 
-### Megatron `--enable-gpt-oss` Bug (Fixed by patch)
+### Megatron `--enable-gpt-oss` Bug (DO NOT USE)
 
-The patch fixes `megatron/post_training/model_builder.py`:
+The `--enable-gpt-oss` flag in `megatron/post_training/model_builder.py` has a bug:
 
 ```python
-# Before (incorrect)
-config.yarn_original_max_position_embeddings = 131072
+# Bug: sets wrong value
+config.yarn_original_max_position_embeddings = 131072  # Wrong! Should be 4096
+```
 
-# After (correct)
-config.yarn_original_max_position_embeddings = 4096
+**Solution**: Don't use `--enable-gpt-oss`. Use manual YaRN configuration instead:
+```bash
+--position-embedding-type rope \
+--use-rope-scaling \
+--rope-scaling-factor 32.0
 ```
 
 ### mbridge Bug (Not fixed)
