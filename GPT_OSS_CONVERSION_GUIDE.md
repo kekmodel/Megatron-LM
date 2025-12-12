@@ -76,6 +76,7 @@ python tools/convert_hf_to_torch_dist.py \
     --moe-router-topk 4 \
     --moe-router-dtype fp32 \
     --moe-token-dispatcher-type alltoall \
+    --moe-grouped-gemm \
     --normalization RMSNorm \
     --norm-epsilon 1e-5 \
     --untie-embeddings-and-output-weights \
@@ -120,6 +121,7 @@ torchrun --nproc_per_node=8 tools/convert_hf_to_torch_dist.py \
     --moe-router-topk 4 \
     --moe-router-dtype fp32 \
     --moe-token-dispatcher-type alltoall \
+    --moe-grouped-gemm \
     --normalization RMSNorm \
     --norm-epsilon 1e-5 \
     --untie-embeddings-and-output-weights \
@@ -173,6 +175,7 @@ For GPT-OSS-120B, modify the following parameters:
 | `--num-experts` | 32/128 | Number of experts |
 | `--moe-router-topk` | 4 | Experts per token |
 | `--moe-router-dtype` | fp32 | Router precision |
+| `--moe-grouped-gemm` | - | **Required for mbridge** (uses GroupedMLP) |
 
 ### Activation & Normalization
 | Argument | Value | Description |
@@ -259,6 +262,10 @@ Qwen3 natively uses 40960, but GPT-OSS uses YaRN to extend 4096 → 131072 (×32
 ### YaRN position mismatch errors
 - Ensure patch is applied with correct `yarn_original_max_position_embeddings=4096`
 - Check mbridge version has correct defaults
+
+### "Unsupported parameter name: local_experts"
+- mbridge doesn't support SequentialMLP weight naming
+- **Solution**: Add `--moe-grouped-gemm` flag to use GroupedMLP instead
 
 ### Checkpoint format issues
 - The converted checkpoint is saved in "release" format
