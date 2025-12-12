@@ -163,28 +163,19 @@ class GPTModel(LanguageModule):
             )
 
         elif self.position_embedding_type == 'yarn':
-            # YaRN config with defaults for None values
-            yarn_scaling_factor = getattr(self.config, "yarn_rotary_scaling_factor", None) or 1.0
-            yarn_original_max_pos = getattr(self.config, "yarn_original_max_position_embeddings", None) or 4096
-            yarn_beta_fast = getattr(self.config, "yarn_beta_fast", None) or 32.0
-            yarn_beta_slow = getattr(self.config, "yarn_beta_slow", None) or 1.0
-            yarn_mscale = getattr(self.config, "yarn_mscale", None) or 1.0
-            yarn_mscale_all_dim = getattr(self.config, "yarn_mscale_all_dim", None) or 0.0
-            yarn_correction_round = getattr(self.config, "yarn_correction_range_round_to_int", False)
-
             self.rotary_pos_emb = YarnRotaryEmbedding(
                 kv_channels=self.config.kv_channels,
                 rotary_percent=rotary_percent,
                 rotary_interleaved=self.config.rotary_interleaved,
                 seq_len_interpolation_factor=seq_len_interpolation_factor,
                 rotary_base=rotary_base,
-                scaling_factor=yarn_scaling_factor,
-                original_max_position_embeddings=yarn_original_max_pos,
-                beta_fast=yarn_beta_fast,
-                beta_slow=yarn_beta_slow,
-                mscale=yarn_mscale,
-                mscale_all_dim=yarn_mscale_all_dim,
-                correction_range_round_to_int=yarn_correction_round,
+                scaling_factor=self.config.yarn_rotary_scaling_factor or 1.0,
+                original_max_position_embeddings=self.config.yarn_original_max_position_embeddings or 4096,
+                beta_fast=self.config.yarn_beta_fast or 32.0,
+                beta_slow=self.config.yarn_beta_slow or 1.0,
+                mscale=self.config.yarn_mscale or 1.0,
+                mscale_all_dim=self.config.yarn_mscale_all_dim or 0.0,
+                correction_range_round_to_int=self.config.yarn_correction_range_round_to_int or False,
                 use_cpu_initialization=self.config.use_cpu_initialization,
             )
         elif self.position_embedding_type == 'mrope' and not self.config.multi_latent_attention:

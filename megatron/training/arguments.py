@@ -1328,40 +1328,23 @@ def core_transformer_config_from_args(args, config_class=None):
     # Create config
     config = config_class(**kw_args)
 
-    # YaRN RoPE configuration
-    # Step 1: Apply --enable-gpt-oss defaults (if enabled)
-    if hasattr(args, 'enable_gpt_oss') and args.enable_gpt_oss:
-        from megatron.training.utils import print_rank_0
-        print_rank_0("GPT-OSS mode enabled: Applying YaRN RoPE defaults")
+    # YaRN RoPE: --enable-gpt-oss preset or manual --yarn-* CLI args
+    if getattr(args, 'enable_gpt_oss', False):
         config.position_embedding_type = "yarn"
-        # GPT-OSS defaults (can be overridden by CLI args below)
-        if config.yarn_rotary_scaling_factor is None:
-            config.yarn_rotary_scaling_factor = 32.0
-        if config.yarn_original_max_position_embeddings is None:
-            config.yarn_original_max_position_embeddings = 4096  # NOT 131072!
-        if config.yarn_beta_fast is None:
-            config.yarn_beta_fast = 32.0
-        if config.yarn_beta_slow is None:
-            config.yarn_beta_slow = 1.0
-        if config.yarn_mscale is None:
-            config.yarn_mscale = 1.0
-        if config.yarn_mscale_all_dim is None:
-            config.yarn_mscale_all_dim = 0.0
-        config.yarn_correction_range_round_to_int = False
+        gpt_oss_defaults = {
+            'yarn_rotary_scaling_factor': 32.0, 'yarn_original_max_position_embeddings': 4096,
+            'yarn_beta_fast': 32.0, 'yarn_beta_slow': 1.0, 'yarn_mscale': 1.0, 'yarn_mscale_all_dim': 0.0,
+        }
+        for k, v in gpt_oss_defaults.items():
+            if getattr(config, k, None) is None:
+                setattr(config, k, v)
 
-    # Step 2: Apply CLI args (override defaults or --enable-gpt-oss values)
-    if hasattr(args, 'yarn_rotary_scaling_factor') and args.yarn_rotary_scaling_factor is not None:
-        config.yarn_rotary_scaling_factor = args.yarn_rotary_scaling_factor
-    if hasattr(args, 'yarn_original_max_position_embeddings') and args.yarn_original_max_position_embeddings is not None:
-        config.yarn_original_max_position_embeddings = args.yarn_original_max_position_embeddings
-    if hasattr(args, 'yarn_beta_fast') and args.yarn_beta_fast is not None:
-        config.yarn_beta_fast = args.yarn_beta_fast
-    if hasattr(args, 'yarn_beta_slow') and args.yarn_beta_slow is not None:
-        config.yarn_beta_slow = args.yarn_beta_slow
-    if hasattr(args, 'yarn_mscale') and args.yarn_mscale is not None:
-        config.yarn_mscale = args.yarn_mscale
-    if hasattr(args, 'yarn_mscale_all_dim') and args.yarn_mscale_all_dim is not None:
-        config.yarn_mscale_all_dim = args.yarn_mscale_all_dim
+    # CLI args override config values
+    for yarn_arg in ['yarn_rotary_scaling_factor', 'yarn_original_max_position_embeddings',
+                     'yarn_beta_fast', 'yarn_beta_slow', 'yarn_mscale', 'yarn_mscale_all_dim']:
+        val = getattr(args, yarn_arg, None)
+        if val is not None:
+            setattr(config, yarn_arg, val)
 
     return config
 

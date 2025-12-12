@@ -1,5 +1,5 @@
 diff --git a/megatron/core/models/gpt/gpt_model.py b/megatron/core/models/gpt/gpt_model.py
-index 25546d366..7d9f718ee 100644
+index 25546d366..bc1dcebf5 100644
 --- a/megatron/core/models/gpt/gpt_model.py
 +++ b/megatron/core/models/gpt/gpt_model.py
 @@ -144,7 +144,7 @@ class GPTModel(LanguageModule):
@@ -11,22 +11,7 @@ index 25546d366..7d9f718ee 100644
                  scatter_to_sequence_parallel=scatter_embedding_sequence_parallel,
                  tp_group=self.pg_collection.tp,
              )
-@@ -163,23 +163,28 @@ class GPTModel(LanguageModule):
-             )
- 
-         elif self.position_embedding_type == 'yarn':
-+            # YaRN config with defaults for None values
-+            yarn_scaling_factor = getattr(self.config, "yarn_rotary_scaling_factor", None) or 1.0
-+            yarn_original_max_pos = getattr(self.config, "yarn_original_max_position_embeddings", None) or 4096
-+            yarn_beta_fast = getattr(self.config, "yarn_beta_fast", None) or 32.0
-+            yarn_beta_slow = getattr(self.config, "yarn_beta_slow", None) or 1.0
-+            yarn_mscale = getattr(self.config, "yarn_mscale", None) or 1.0
-+            yarn_mscale_all_dim = getattr(self.config, "yarn_mscale_all_dim", None) or 0.0
-+            yarn_correction_round = getattr(self.config, "yarn_correction_range_round_to_int", False)
-+
-             self.rotary_pos_emb = YarnRotaryEmbedding(
-                 kv_channels=self.config.kv_channels,
-                 rotary_percent=rotary_percent,
+@@ -169,17 +169,13 @@ class GPTModel(LanguageModule):
                  rotary_interleaved=self.config.rotary_interleaved,
                  seq_len_interpolation_factor=seq_len_interpolation_factor,
                  rotary_base=rotary_base,
@@ -41,62 +26,51 @@ index 25546d366..7d9f718ee 100644
 -                correction_range_round_to_int=getattr(
 -                    self.config, "yarn_correction_range_round_to_int"
 -                ),
-+                scaling_factor=yarn_scaling_factor,
-+                original_max_position_embeddings=yarn_original_max_pos,
-+                beta_fast=yarn_beta_fast,
-+                beta_slow=yarn_beta_slow,
-+                mscale=yarn_mscale,
-+                mscale_all_dim=yarn_mscale_all_dim,
-+                correction_range_round_to_int=yarn_correction_round,
++                scaling_factor=self.config.yarn_rotary_scaling_factor or 1.0,
++                original_max_position_embeddings=self.config.yarn_original_max_position_embeddings or 4096,
++                beta_fast=self.config.yarn_beta_fast or 32.0,
++                beta_slow=self.config.yarn_beta_slow or 1.0,
++                mscale=self.config.yarn_mscale or 1.0,
++                mscale_all_dim=self.config.yarn_mscale_all_dim or 0.0,
++                correction_range_round_to_int=self.config.yarn_correction_range_round_to_int or False,
                  use_cpu_initialization=self.config.use_cpu_initialization,
              )
          elif self.position_embedding_type == 'mrope' and not self.config.multi_latent_attention:
 diff --git a/megatron/core/transformer/transformer_config.py b/megatron/core/transformer/transformer_config.py
-index 1c7cf4ea1..dd088d615 100644
+index cf36c0fc6..f424f214e 100644
 --- a/megatron/core/transformer/transformer_config.py
 +++ b/megatron/core/transformer/transformer_config.py
-@@ -192,24 +192,26 @@ class TransformerConfig(ModelParallelConfig):
+@@ -192,6 +192,28 @@ class TransformerConfig(ModelParallelConfig):
      qk_layernorm: bool = False
      """Whether to apply `normalization` type of normalization to the query and key embeddings."""
  
--    # GPT-OSS YaRN configuration (for GPTModel yarn position_embedding_type)
--    yarn_rotary_scaling_factor: float = 32.0
--    """YaRN rotary scaling factor for GPT-OSS models."""
-+    # YaRN configuration (for GPTModel yarn position_embedding_type)
-+    # Set via CLI: --yarn-rotary-scaling-factor, --yarn-original-max-position-embeddings, etc.
-+    # Or use --enable-gpt-oss for GPT-OSS defaults (4096, 32.0, etc.)
++    # YaRN configuration (set via --yarn-* CLI args or --enable-gpt-oss preset)
 +    yarn_rotary_scaling_factor: Optional[float] = None
 +    """YaRN rotary scaling factor (e.g., 32.0 for GPT-OSS, 4.0 for Qwen)."""
- 
--    yarn_original_max_position_embeddings: int = 4096
--    """Original max position embeddings before YaRN scaling. GPT-OSS uses 4096."""
++
 +    yarn_original_max_position_embeddings: Optional[int] = None
 +    """Original max position embeddings before YaRN scaling (e.g., 4096 for GPT-OSS)."""
- 
--    yarn_beta_fast: float = 32.0
--    """YaRN beta_fast parameter for frequency interpolation."""
++
 +    yarn_beta_fast: Optional[float] = None
 +    """YaRN beta_fast parameter for frequency interpolation (default: 32.0)."""
- 
--    yarn_beta_slow: float = 1.0
--    """YaRN beta_slow parameter for frequency interpolation."""
++
 +    yarn_beta_slow: Optional[float] = None
 +    """YaRN beta_slow parameter for frequency interpolation (default: 1.0)."""
- 
--    yarn_mscale: float = 1.0
--    """YaRN mscale for attention scaling."""
++
 +    yarn_mscale: Optional[float] = None
 +    """YaRN mscale for attention scaling (default: 1.0)."""
- 
--    yarn_mscale_all_dim: float = 0.0
--    """YaRN mscale_all_dim for attention scaling."""
++
 +    yarn_mscale_all_dim: Optional[float] = None
 +    """YaRN mscale_all_dim for attention scaling (default: 0.0)."""
++
++    yarn_correction_range_round_to_int: bool = False
++    """Whether to round correction range to integer in YaRN."""
++
+     test_mode: bool = False
+     """Whether to run real-time tests."""
  
-     yarn_correction_range_round_to_int: bool = False
-     """Whether to round correction range to integer in YaRN."""
 diff --git a/megatron/post_training/model_builder.py b/megatron/post_training/model_builder.py
-index 7ca9737a7..ad0edb430 100644
+index cb2654e71..ad0edb430 100644
 --- a/megatron/post_training/model_builder.py
 +++ b/megatron/post_training/model_builder.py
 @@ -146,23 +146,9 @@ def modelopt_gpt_mamba_builder(args, pre_process, post_process, vp_stage=None, c
@@ -114,7 +88,7 @@ index 7ca9737a7..ad0edb430 100644
 -        # These defaults are based on Huggingface GPT-OSS configurations
 -        config.position_embedding_type = "yarn"
 -        config.yarn_rotary_scaling_factor = 32.0
--        config.yarn_original_max_position_embeddings = 4096  # NOT 131072! (4096 × 32 factor = 131072)
+-        config.yarn_original_max_position_embeddings = 131072
 -        config.yarn_beta_fast = 32.0
 -        config.yarn_beta_slow = 1.0
 -        config.yarn_mscale = 1.0
@@ -125,63 +99,48 @@ index 7ca9737a7..ad0edb430 100644
          raise ValueError("ModelOpt integration does not currently support virtual pipeline parallel.")
      if args.use_legacy_models:
 diff --git a/megatron/training/arguments.py b/megatron/training/arguments.py
-index f2f992c4a..f57a5abf2 100644
+index 52b41791c..5efd1040b 100644
 --- a/megatron/training/arguments.py
 +++ b/megatron/training/arguments.py
-@@ -1328,19 +1328,41 @@ def core_transformer_config_from_args(args, config_class=None):
-     # Create config
-     config = config_class(**kw_args)
+@@ -1325,8 +1325,28 @@ def core_transformer_config_from_args(args, config_class=None):
+         kw_args['quant_recipe'] = kitchen_quantization_recipe_config(args.kitchen_recipe_number)
  
--    # GPT-OSS YaRN configuration
-+    # YaRN RoPE configuration
-+    # Step 1: Apply --enable-gpt-oss defaults (if enabled)
-     if hasattr(args, 'enable_gpt_oss') and args.enable_gpt_oss:
-         from megatron.training.utils import print_rank_0
--        print_rank_0("GPT-OSS mode enabled: Configuring YaRN RoPE parameters")
-+        print_rank_0("GPT-OSS mode enabled: Applying YaRN RoPE defaults")
-         config.position_embedding_type = "yarn"
--        config.yarn_rotary_scaling_factor = 32.0
--        config.yarn_original_max_position_embeddings = 4096  # NOT 131072!
--        config.yarn_beta_fast = 32.0
--        config.yarn_beta_slow = 1.0
--        config.yarn_mscale = 1.0
--        config.yarn_mscale_all_dim = 0.0
-+        # GPT-OSS defaults (can be overridden by CLI args below)
-+        if config.yarn_rotary_scaling_factor is None:
-+            config.yarn_rotary_scaling_factor = 32.0
-+        if config.yarn_original_max_position_embeddings is None:
-+            config.yarn_original_max_position_embeddings = 4096  # NOT 131072!
-+        if config.yarn_beta_fast is None:
-+            config.yarn_beta_fast = 32.0
-+        if config.yarn_beta_slow is None:
-+            config.yarn_beta_slow = 1.0
-+        if config.yarn_mscale is None:
-+            config.yarn_mscale = 1.0
-+        if config.yarn_mscale_all_dim is None:
-+            config.yarn_mscale_all_dim = 0.0
-         config.yarn_correction_range_round_to_int = False
  
-+    # Step 2: Apply CLI args (override defaults or --enable-gpt-oss values)
-+    if hasattr(args, 'yarn_rotary_scaling_factor') and args.yarn_rotary_scaling_factor is not None:
-+        config.yarn_rotary_scaling_factor = args.yarn_rotary_scaling_factor
-+    if hasattr(args, 'yarn_original_max_position_embeddings') and args.yarn_original_max_position_embeddings is not None:
-+        config.yarn_original_max_position_embeddings = args.yarn_original_max_position_embeddings
-+    if hasattr(args, 'yarn_beta_fast') and args.yarn_beta_fast is not None:
-+        config.yarn_beta_fast = args.yarn_beta_fast
-+    if hasattr(args, 'yarn_beta_slow') and args.yarn_beta_slow is not None:
-+        config.yarn_beta_slow = args.yarn_beta_slow
-+    if hasattr(args, 'yarn_mscale') and args.yarn_mscale is not None:
-+        config.yarn_mscale = args.yarn_mscale
-+    if hasattr(args, 'yarn_mscale_all_dim') and args.yarn_mscale_all_dim is not None:
-+        config.yarn_mscale_all_dim = args.yarn_mscale_all_dim
+-    # Return config.
+-    return config_class(**kw_args)
++    # Create config
++    config = config_class(**kw_args)
 +
-     return config
++    # YaRN RoPE: --enable-gpt-oss preset or manual --yarn-* CLI args
++    if getattr(args, 'enable_gpt_oss', False):
++        config.position_embedding_type = "yarn"
++        gpt_oss_defaults = {
++            'yarn_rotary_scaling_factor': 32.0, 'yarn_original_max_position_embeddings': 4096,
++            'yarn_beta_fast': 32.0, 'yarn_beta_slow': 1.0, 'yarn_mscale': 1.0, 'yarn_mscale_all_dim': 0.0,
++        }
++        for k, v in gpt_oss_defaults.items():
++            if getattr(config, k, None) is None:
++                setattr(config, k, v)
++
++    # CLI args override config values
++    for yarn_arg in ['yarn_rotary_scaling_factor', 'yarn_original_max_position_embeddings',
++                     'yarn_beta_fast', 'yarn_beta_slow', 'yarn_mscale', 'yarn_mscale_all_dim']:
++        val = getattr(args, yarn_arg, None)
++        if val is not None:
++            setattr(config, yarn_arg, val)
++
++    return config
  
  
-@@ -2235,6 +2257,20 @@ def _add_training_args(parser):
-                       help='Enable GPT-OSS mode with YaRN RoPE configuration. When enabled, '
-                       'automatically configures all YaRN parameters with GPT-OSS defaults '
-                       '(yarn_original_max_position_embeddings=4096, factor=32, etc).')
+ def _add_transformer_engine_args(parser):
+@@ -2216,6 +2236,24 @@ def _add_training_args(parser):
+                       choices=['rope', 'yarn'],
+                       help='Type of rope to use. Note that MLA takes yarn by default, '
+                       'and common attention takes rope by default.')
++    group.add_argument('--enable-gpt-oss', action='store_true',
++                      help='Enable GPT-OSS mode with YaRN RoPE configuration. When enabled, '
++                      'automatically configures all YaRN parameters with GPT-OSS defaults '
++                      '(yarn_original_max_position_embeddings=4096, factor=32, etc).')
 +    # YaRN RoPE configuration arguments (can override --enable-gpt-oss defaults)
 +    group.add_argument('--yarn-rotary-scaling-factor', type=float, default=None,
 +                      help='YaRN scaling factor (e.g., 32.0 for GPT-OSS, 4.0 for Qwen).')

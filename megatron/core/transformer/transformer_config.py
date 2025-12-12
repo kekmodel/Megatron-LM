@@ -192,9 +192,7 @@ class TransformerConfig(ModelParallelConfig):
     qk_layernorm: bool = False
     """Whether to apply `normalization` type of normalization to the query and key embeddings."""
 
-    # YaRN configuration (for GPTModel yarn position_embedding_type)
-    # Set via CLI: --yarn-rotary-scaling-factor, --yarn-original-max-position-embeddings, etc.
-    # Or use --enable-gpt-oss for GPT-OSS defaults (4096, 32.0, etc.)
+    # YaRN configuration (set via --yarn-* CLI args or --enable-gpt-oss preset)
     yarn_rotary_scaling_factor: Optional[float] = None
     """YaRN rotary scaling factor (e.g., 32.0 for GPT-OSS, 4.0 for Qwen)."""
 
