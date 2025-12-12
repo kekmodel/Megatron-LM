@@ -220,21 +220,25 @@ YaRN parameters are **not configurable via CLI** (only MLA supports `--rope-type
 
 ### Required Code Changes in model_provider
 
-**Step 1**: Add YaRN config **after** `core_transformer_config_from_args(args)`:
+**Step 1**: Set position_embedding_type to "yarn" **after** `core_transformer_config_from_args(args)`:
 
 ```python
 config: TransformerConfig = core_transformer_config_from_args(args)
 
-# GPT-OSS YaRN config (CLI에서 지원 안 함)
+# GPT-OSS YaRN - TransformerConfig에 기본값이 있으므로 이것만 설정!
 config.position_embedding_type = "yarn"  # CLI는 'rope'만 지원, yarn으로 덮어쓰기
-config.yarn_rotary_scaling_factor = 32.0
-config.yarn_original_max_position_embeddings = 4096  # 핵심! (NOT 131072)
-config.yarn_beta_fast = 32.0
-config.yarn_beta_slow = 1.0
-config.yarn_mscale = 1.0
-config.yarn_mscale_all_dim = 0.0
-config.yarn_correction_range_round_to_int = False  # v0.15.0 필수!
+
+# 아래는 TransformerConfig 기본값 (필요시 오버라이드):
+# config.yarn_rotary_scaling_factor = 32.0  (기본값)
+# config.yarn_original_max_position_embeddings = 4096  (기본값)
+# config.yarn_beta_fast = 32.0  (기본값)
+# config.yarn_beta_slow = 1.0  (기본값)
+# config.yarn_mscale = 1.0  (기본값)
+# config.yarn_mscale_all_dim = 0.0  (기본값)
+# config.yarn_correction_range_round_to_int = False  (기본값)
 ```
+
+> ✅ **v0.15.0 패치 적용 후**: TransformerConfig에 GPT-OSS YaRN 기본값이 추가됨. `position_embedding_type = "yarn"`만 설정하면 됨!
 
 **Step 2**: Remove conflicting kwargs from GPTModel (kwargs가 config보다 우선순위 높음!):
 
