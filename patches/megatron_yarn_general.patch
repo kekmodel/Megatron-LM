@@ -1,7 +1,16 @@
 diff --git a/megatron/core/models/gpt/gpt_model.py b/megatron/core/models/gpt/gpt_model.py
-index 25546d366..139e3967d 100644
+index 25546d366..7d9f718ee 100644
 --- a/megatron/core/models/gpt/gpt_model.py
 +++ b/megatron/core/models/gpt/gpt_model.py
+@@ -144,7 +144,7 @@ class GPTModel(LanguageModule):
+                 config=self.config,
+                 vocab_size=self.vocab_size,
+                 max_sequence_length=self.max_sequence_length,
+-                position_embedding_type=position_embedding_type,
++                position_embedding_type=self.position_embedding_type,
+                 scatter_to_sequence_parallel=scatter_embedding_sequence_parallel,
+                 tp_group=self.pg_collection.tp,
+             )
 @@ -163,23 +163,28 @@ class GPTModel(LanguageModule):
              )
  
